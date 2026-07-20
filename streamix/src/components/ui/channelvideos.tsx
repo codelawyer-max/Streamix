@@ -1,6 +1,6 @@
 import React from "react";
 // Import your existing VideoCard component exactly as it is structured in your project
-import VideoCard, { VideoProps } from "./videocard";
+import VideoCard from "./videocard";
 
 interface Video {
   id: string;
