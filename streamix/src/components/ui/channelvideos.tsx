@@ -1,6 +1,6 @@
 import React from "react";
 // Import your existing VideoCard component exactly as it is structured in your project
-import VideoCard from "./videocard";
+import VideoCard, { VideoProps } from "./videocard";
 
 interface Video {
   id: string;
@@ -38,13 +38,17 @@ export default function ChannelVideos({ videos }: ChannelVideosProps) {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-8">
         {videos.map((video) => {
           const cardVideo: VideoProps = {
+            _id: video.id,
             id: video.id,
             title: video.title,
-            channel: video.channel ?? "Unknown",
-            views: video.views,
-            timestamp: video.uploadedOn,
-            duration: video.duration,
+            videotitle: video.title,
+            filepath: video.thumbnail,
             thumbnail: video.thumbnail,
+            videochannel: video.channel ?? "Unknown",
+            channel: video.channel ?? "Unknown",
+            views: Number(video.views),
+            createdAt: video.uploadedOn,
+            uploadedOn: video.uploadedOn,
             avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(
               video.channel ?? "User"
             )}`,

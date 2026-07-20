@@ -5,14 +5,20 @@ import { formatDistanceToNow } from "date-fns";
 // Replace with this:
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"; // Adjusted import path to match standard project layout
 
-interface VideoProps {
-  _id: string;
-  videotitle: string;
-  filepath: string;
+export interface VideoProps {
+  _id?: string;
+  id?: string;
+  videotitle?: string;
+  title?: string;
+  filepath?: string;
+  thumbnail?: string;
   videochannel?: string; // Handles spelling safety
   videochanel?: string;  // Handles trainer's spelling safety
-  views: number;
-  createdAt: string;
+  channel?: string;
+  views?: number;
+  createdAt?: string;
+  uploadedOn?: string;
+  avatar?: string;
 }
 
 export default function VideoCard({
@@ -20,14 +26,20 @@ export default function VideoCard({
 }: {
   video: VideoProps;
 }) {
+  const videoId = video._id || video.id || "";
+  const videoTitle = video.videotitle || video.title || "Untitled Video";
+  const channelName =
+    video.videochannel || video.videochanel || video.channel || "Unknown Channel";
+  const rawDate = video.createdAt || video.uploadedOn;
+
   // Ultra-safe function to handle undefined, malformed, or missing dates
   const renderTimeAgo = () => {
-    if (!video || !video.createdAt) {
+    if (!video || !rawDate) {
       return "recently";
     }
 
     try {
-      const parsedDate = new Date(video.createdAt);
+      const parsedDate = new Date(rawDate);
       if (isNaN(parsedDate.getTime())) {
         return "recently";
       }
@@ -37,11 +49,17 @@ export default function VideoCard({
     }
   };
 
-  // Determine channel name regardless of spelling variants
-  const channelName = video.videochannel || video.videochanel || "Unknown Channel";
-
   // Safeguards filepath separator issues across environments
-  const normalizedFilePath = video.filepath?.replace(/\\/g, "/");
+  const rawVideoPath = video.filepath || video.thumbnail || "";
+  const normalizedFilePath = rawVideoPath.replace(/\\/g, "/");
+  const videoSrc = normalizedFilePath
+    ? normalizedFilePath.startsWith("http")
+      ? `${normalizedFilePath}#t=0.1`
+      : `${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000"}/${normalizedFilePath}#t=0.1`
+    : "";
+
+  const fallbackAvatar =
+    video.avatar || channelName[0]?.toUpperCase() || "U";
 
   return (
     <Link
