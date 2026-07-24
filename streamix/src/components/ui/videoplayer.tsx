@@ -440,17 +440,19 @@ accent-white
 
 
         {/* Bottom Controls */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
+     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
 
 
           {/* Left Controls */}
-        <div className="flex items-center gap-2 sm:gap-3">
+       <div className="flex items-center justify-center gap-2 sm:justify-start sm:gap-3">
 
 
             {/* Skip Backward */}
             <button
               onClick={skipBackward}
-              className="rounded-full bg-white/90 p-2 text-black transition hover:bg-white"
+className="rounded-full bg-white/80 p-1.5 text-black transition-all duration-200 hover:bg-white sm:p-2"
+
+
               title="Rewind 10 seconds"
             >
               <RotateCcw size={20} />
@@ -460,7 +462,7 @@ accent-white
             {/* Play / Pause */}
             <button
               onClick={togglePlay}
-              className="rounded-full bg-white/90 p-2 text-black transition hover:bg-white"
+              className="rounded-full bg-white/80 p-1.5 text-black transition-all duration-200 hover:bg-white sm:p-2"
               title={isPlaying ? "Pause" : "Play"}
             >
               {isPlaying ? <Pause size={20} /> : <Play size={20} />}
@@ -470,7 +472,7 @@ accent-white
             {/* Mute / Unmute */}
             <button
               onClick={toggleMute}
-              className="rounded-full bg-white/90 p-2 text-black transition hover:bg-white"
+              className="rounded-full bg-white/80 p-1.5 text-black transition-all duration-200 hover:bg-white sm:p-2"
               title={isMuted ? "Unmute" : "Mute"}
             >
               {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
@@ -493,11 +495,11 @@ accent-white
 
 
           {/* Right Controls */}
-          <div className="flex items-center gap-3">
+        <div className="flex items-center justify-center gap-2 sm:justify-end sm:gap-3">
 
 
             {/* Time Display */}
-            <div className="text-sm font-medium">
+            <div className="text-xs font-medium sm:text-sm">
               {formatTime(currentTime)} / {formatTime(duration)}
             </div>
 
@@ -506,7 +508,7 @@ accent-white
             {/* Skip Forward */}
             <button
               onClick={skipForward}
-              className="rounded-full bg-white/90 p-2 text-black transition hover:bg-white"
+              className="rounded-full bg-white/80 p-1.5 text-black transition-all duration-200 hover:bg-white sm:p-2"
               title="Forward 10 seconds"
             >
               <RotateCw size={20} />
@@ -517,7 +519,7 @@ accent-white
             {/* Fullscreen Button */}
             <button
               onClick={toggleFullscreen}
-              className="rounded-full bg-white/90 p-2 text-black transition hover:bg-white"
+             className="rounded-full bg-white/80 p-1.5 text-black transition-all duration-200 hover:bg-white sm:p-2"
               title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
             >
               {isFullscreen ? <Minimize size={20} /> : <Maximize size={20} />}
