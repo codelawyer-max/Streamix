@@ -42,6 +42,7 @@ export default function VideoPlayer({
   const lastTapTime = useRef<number>(0);
   const lastTapPosition = useRef<number>(0);
   const router = useRouter();
+  const controlsTimer = useRef<NodeJS.Timeout | null>(null);
 
 
   // Player states
@@ -53,6 +54,7 @@ export default function VideoPlayer({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isEnded, setIsEnded] = useState(false);
+  const [showControls, setShowControls] = useState(true);
 
 
   // Sync fullscreen state with browser changes
@@ -85,6 +87,14 @@ export default function VideoPlayer({
     }
 
   }, [video._id]);
+
+  useEffect(() => {
+    return () => {
+      if (controlsTimer.current) {
+        clearTimeout(controlsTimer.current);
+      }
+    };
+  }, []);
 
 
 
@@ -181,10 +191,6 @@ export default function VideoPlayer({
 
     return `${minutes}:${seconds.toString().padStart(2, "0")}`;
   };
-
-  // Calculate watched percentage of the video
-  const progressPercentage =
-    duration > 0 ? (currentTime / duration) * 100 : 0;
 
   // Move video to selected position
   const handleSeek = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -346,6 +352,17 @@ export default function VideoPlayer({
       console.error("Fullscreen error:", error);
     }
   };
+  const handleMouseMove = () => {
+    setShowControls(true);
+
+    if (controlsTimer.current) {
+      clearTimeout(controlsTimer.current);
+    }
+
+    controlsTimer.current = setTimeout(() => {
+      setShowControls(false);
+    }, 3000);
+  };
 
 
 
@@ -353,9 +370,14 @@ export default function VideoPlayer({
 
     <div
       ref={playerRef}
-      onPointerDown={handlePointerDown}
+      onPointerDown={(e) => {
+        handlePointerDown(e);
+        handleMouseMove();
+      }}
+      onMouseMove={handleMouseMove}
       onContextMenu={(e) => e.preventDefault()}
-      className="relative aspect-video w-full overflow-hidden rounded-xl bg-black touch-none select-none"
+      className="relative aspect-video w-full overflow-hidden rounded-xl bg-black shadow-lg touch-none select-none"
+
     >
 
       {/* Video */}
@@ -376,7 +398,7 @@ export default function VideoPlayer({
 
       {/* Loading State */}
       {isLoading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/40 text-white">
+        <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/50 backdrop-blur-sm text-white">
           <div className="h-10 w-10 animate-spin rounded-full border-4 border-white border-t-transparent"></div>
         </div>
       )}
@@ -396,7 +418,7 @@ export default function VideoPlayer({
             {/* Play Again */}
             <button
               onClick={replayVideo}
-              className="rounded-full bg-white px-5 py-2 text-black transition hover:bg-gray-200"
+              className="rounded-full bg-white px-5 py-2 text-black transition-all duration-200 hover:scale-105 hover:bg-gray-200"
             >
               ▶ Play Again
             </button>
@@ -406,7 +428,7 @@ export default function VideoPlayer({
             {nextVideo && (
               <button
                 onClick={playNextVideo}
-                className="rounded-full bg-white px-5 py-2 text-black transition hover:bg-gray-200"
+                className="rounded-full bg-white px-5 py-2 text-black transition-all duration-200 hover:scale-105 hover:bg-gray-200"
               >
                 ⏭ Next Video
               </button>
@@ -419,9 +441,12 @@ export default function VideoPlayer({
 
 
 
-      {/* Custom Controls */}
-      <div className="absolute bottom-0 left-0 w-full bg-gradient-to-t from-black/80 via-black/40 to-transparent px-4 py-3 text-white">
 
+      {/* Custom Controls */}
+      <div
+        className={`absolute bottom-0 left-0 w-full bg-gradient-to-t from-black/90 via-black/60 to-transparent px-3 py-3 text-white backdrop-blur-sm transition-opacity duration-300 sm:px-4 ${showControls ? "opacity-100" : "pointer-events-none opacity-0"
+          }`}
+      >
         {/* Progress Bar */}
         <input
           type="range"
@@ -429,28 +454,32 @@ export default function VideoPlayer({
           max={duration}
           value={currentTime}
           onChange={handleSeek}
-          className="
-mb-3 
-h-1.5 
-w-full 
-cursor-pointer 
-accent-white
+ className="
+  mb-3
+  h-1.5
+  w-full
+  cursor-pointer
+  py-2
+  accent-white
+  transition-all
+  hover:h-2
 "
         />
 
 
+
         {/* Bottom Controls */}
-     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 
 
           {/* Left Controls */}
-       <div className="flex items-center justify-center gap-2 sm:justify-start sm:gap-3">
+          <div className="flex items-center justify-center gap-3 sm:justify-start sm:gap-3">
 
 
             {/* Skip Backward */}
             <button
               onClick={skipBackward}
-className="rounded-full bg-white/80 p-1.5 text-black transition-all duration-200 hover:bg-white sm:p-2"
+              className="rounded-full bg-white/80 p-1.5 text-black transition-all duration-200 hover:scale-110 hover:bg-white sm:p-2"
 
 
               title="Rewind 10 seconds"
@@ -462,7 +491,7 @@ className="rounded-full bg-white/80 p-1.5 text-black transition-all duration-200
             {/* Play / Pause */}
             <button
               onClick={togglePlay}
-              className="rounded-full bg-white/80 p-1.5 text-black transition-all duration-200 hover:bg-white sm:p-2"
+              className="rounded-full bg-white/80 p-1.5 text-black transition-all duration-200 hover:scale-110 hover:bg-white sm:p-2"
               title={isPlaying ? "Pause" : "Play"}
             >
               {isPlaying ? <Pause size={20} /> : <Play size={20} />}
@@ -472,7 +501,7 @@ className="rounded-full bg-white/80 p-1.5 text-black transition-all duration-200
             {/* Mute / Unmute */}
             <button
               onClick={toggleMute}
-              className="rounded-full bg-white/80 p-1.5 text-black transition-all duration-200 hover:bg-white sm:p-2"
+              className="rounded-full bg-white/80 p-1.5 text-black transition-all duration-200 hover:scale-110 hover:bg-white sm:p-2"
               title={isMuted ? "Unmute" : "Mute"}
             >
               {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
@@ -486,7 +515,7 @@ className="rounded-full bg-white/80 p-1.5 text-black transition-all duration-200
               step={0.01}
               value={volume}
               onChange={handleVolumeChange}
-             className="hidden w-32 cursor-pointer sm:block"
+              className="hidden w-32 cursor-pointer sm:block"
             />
 
 
@@ -495,11 +524,10 @@ className="rounded-full bg-white/80 p-1.5 text-black transition-all duration-200
 
 
           {/* Right Controls */}
-        <div className="flex items-center justify-center gap-2 sm:justify-end sm:gap-3">
-
+          <div className="flex flex-wrap items-center justify-center gap-3 sm:justify-end sm:gap-3">
 
             {/* Time Display */}
-            <div className="text-xs font-medium sm:text-sm">
+           <div className="whitespace-nowrap text-xs font-medium sm:text-sm">
               {formatTime(currentTime)} / {formatTime(duration)}
             </div>
 
@@ -508,7 +536,7 @@ className="rounded-full bg-white/80 p-1.5 text-black transition-all duration-200
             {/* Skip Forward */}
             <button
               onClick={skipForward}
-              className="rounded-full bg-white/80 p-1.5 text-black transition-all duration-200 hover:bg-white sm:p-2"
+              className="rounded-full bg-white/80 p-1.5 text-black transition-all duration-200 hover:scale-110 hover:bg-white sm:p-2"
               title="Forward 10 seconds"
             >
               <RotateCw size={20} />
@@ -519,7 +547,7 @@ className="rounded-full bg-white/80 p-1.5 text-black transition-all duration-200
             {/* Fullscreen Button */}
             <button
               onClick={toggleFullscreen}
-             className="rounded-full bg-white/80 p-1.5 text-black transition-all duration-200 hover:bg-white sm:p-2"
+              className="rounded-full bg-white/80 p-1.5 text-black transition-all duration-200 hover:scale-110 hover:bg-white sm:p-2"
               title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
             >
               {isFullscreen ? <Minimize size={20} /> : <Maximize size={20} />}
