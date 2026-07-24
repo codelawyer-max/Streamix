@@ -310,7 +310,7 @@ export default function VideoPlayer({ video }: VideoPlayerProps) {
       <video
         ref={videoRef}
         src={videoSrc}
-       className="h-full w-full object-contain"
+        className="h-full w-full object-contain"
         preload="auto"
         onLoadedMetadata={handleLoadedMetadata}
         onTimeUpdate={handleTimeUpdate}
