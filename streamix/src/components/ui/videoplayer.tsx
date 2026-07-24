@@ -19,6 +19,8 @@ export default function VideoPlayer({ video }: VideoPlayerProps) {
   // Reference to HTML video element
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const playerRef = useRef<HTMLDivElement | null>(null);
+  const lastTapTime = useRef<number>(0);
+  const lastTapPosition = useRef<number>(0);
 
 
   // Player states
@@ -29,6 +31,7 @@ export default function VideoPlayer({ video }: VideoPlayerProps) {
   const [isMuted, setIsMuted] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+
 
   // Sync fullscreen state with browser changes
   useEffect(() => {
@@ -219,6 +222,57 @@ export default function VideoPlayer({ video }: VideoPlayerProps) {
     setCurrentTime(newTime);
   };
 
+  const handlePointerDown = (
+    event: React.PointerEvent<HTMLDivElement>
+  ) => {
+
+    // Handle only mobile touch events
+    if (event.pointerType !== "touch") return;
+
+
+    const now = Date.now();
+
+    const timeDifference = now - lastTapTime.current;
+
+
+    const playerElement = event.currentTarget;
+
+    const rect = playerElement.getBoundingClientRect();
+
+
+    // Find where user tapped
+    const tapPosition = event.clientX - rect.left;
+
+
+    // Double tap detected
+    if (timeDifference < 350 && timeDifference > 0) {
+
+
+      if (tapPosition < rect.width / 2) {
+
+        // Left side
+        skipBackward();
+
+      } else {
+
+        // Right side
+        skipForward();
+
+      }
+
+
+      lastTapTime.current = 0;
+
+
+    } else {
+
+
+      // First tap
+      lastTapTime.current = now;
+
+    }
+
+  };
   // Enter or Exit Fullscreen
   const toggleFullscreen = async () => {
     const playerElement = playerRef.current;
@@ -241,16 +295,22 @@ export default function VideoPlayer({ video }: VideoPlayerProps) {
 
 
   return (
+
     <div
       ref={playerRef}
-      className="relative aspect-video w-full overflow-hidden rounded-xl bg-black"
+      onPointerDown={handlePointerDown}
+      onContextMenu={(e) => e.preventDefault()}
+      className="relative aspect-video w-full overflow-hidden rounded-xl bg-black touch-none select-none"
+
+
     >
+
 
       {/* Video */}
       <video
         ref={videoRef}
         src={videoSrc}
-        className="h-full w-full object-contain"
+       className="h-full w-full object-contain"
         preload="auto"
         onLoadedMetadata={handleLoadedMetadata}
         onTimeUpdate={handleTimeUpdate}
@@ -280,6 +340,7 @@ export default function VideoPlayer({ video }: VideoPlayerProps) {
           className="mb-3 w-full cursor-pointer"
         />
 
+
         {/* Bottom Controls */}
         <div className="flex items-center justify-between">
 
@@ -294,6 +355,7 @@ export default function VideoPlayer({ video }: VideoPlayerProps) {
               ⏪ 10s
             </button>
 
+
             {/* Play / Pause */}
             <button
               onClick={togglePlay}
@@ -302,6 +364,7 @@ export default function VideoPlayer({ video }: VideoPlayerProps) {
               {isPlaying ? "Pause" : "Play"}
             </button>
 
+
             {/* Mute / Unmute */}
             <button
               onClick={toggleMute}
@@ -309,6 +372,7 @@ export default function VideoPlayer({ video }: VideoPlayerProps) {
             >
               {isMuted ? "Mute" : "Volume"}
             </button>
+
 
             {/* Volume Slider */}
             <input
@@ -322,6 +386,8 @@ export default function VideoPlayer({ video }: VideoPlayerProps) {
             />
 
           </div>
+
+
           {/* Right Controls */}
           <div className="flex items-center gap-3">
 
@@ -330,6 +396,7 @@ export default function VideoPlayer({ video }: VideoPlayerProps) {
               {formatTime(currentTime)} / {formatTime(duration)}
             </div>
 
+
             {/* Skip Forward */}
             <button
               onClick={skipForward}
@@ -337,6 +404,7 @@ export default function VideoPlayer({ video }: VideoPlayerProps) {
             >
               10s ⏩
             </button>
+
 
             {/* Fullscreen Button */}
             <button
@@ -347,8 +415,6 @@ export default function VideoPlayer({ video }: VideoPlayerProps) {
             </button>
 
           </div>
-
-
 
         </div>
 
