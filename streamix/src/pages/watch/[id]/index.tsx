@@ -24,6 +24,15 @@ const WatchPage = () => {
   const [currentVideo, setCurrentVideo] = useState<VideoData | null>(null);
   const [allVideos, setAllVideos] = useState<VideoData[]>([]);
   const [loading, setLoading] = useState(true);
+  const currentVideoIndex = allVideos.findIndex(
+    (video) => video._id === currentVideo?._id
+  );
+
+  const nextVideo =
+    currentVideoIndex >= 0 &&
+      currentVideoIndex < allVideos.length - 1
+      ? allVideos[currentVideoIndex + 1]
+      : null;
 
   useEffect(() => {
     const fetchVideoData = async () => {
@@ -71,7 +80,10 @@ const WatchPage = () => {
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           {/* Main Video & Content Area */}
           <section className="flex flex-col gap-6 lg:col-span-2">
-            <VideoPlayer video={currentVideo} />
+            <VideoPlayer
+              video={currentVideo}
+              nextVideo={nextVideo}
+            />
             <VideoInfo video={currentVideo} />
             <Comments video={currentVideo} />
           </section>

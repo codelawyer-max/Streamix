@@ -1,4 +1,15 @@
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/router";
+import {
+  Play,
+  Pause,
+  Volume2,
+  VolumeX,
+  Maximize,
+  Minimize,
+  RotateCcw,
+  RotateCw,
+} from "lucide-react";
 
 interface VideoPlayerProps {
   video: {
@@ -6,9 +17,18 @@ interface VideoPlayerProps {
     videotitle: string;
     filepath: string;
   };
+
+  nextVideo?: {
+    _id: string;
+    videotitle: string;
+    filepath: string;
+  } | null;
 }
 
-export default function VideoPlayer({ video }: VideoPlayerProps) {
+export default function VideoPlayer({
+  video,
+  nextVideo,
+}: VideoPlayerProps) {
   // Normalize Windows path
   const normalizedPath = video.filepath?.replace(/\\/g, "/");
 
@@ -21,6 +41,7 @@ export default function VideoPlayer({ video }: VideoPlayerProps) {
   const playerRef = useRef<HTMLDivElement | null>(null);
   const lastTapTime = useRef<number>(0);
   const lastTapPosition = useRef<number>(0);
+  const router = useRouter();
 
 
   // Player states
@@ -31,6 +52,7 @@ export default function VideoPlayer({ video }: VideoPlayerProps) {
   const [isMuted, setIsMuted] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isEnded, setIsEnded] = useState(false);
 
 
   // Sync fullscreen state with browser changes
@@ -51,6 +73,18 @@ export default function VideoPlayer({ video }: VideoPlayerProps) {
       );
     };
   }, []);
+
+  useEffect(() => {
+    setIsEnded(false);
+    setCurrentTime(0);
+    setIsPlaying(false);
+    setIsLoading(true);
+
+    if (videoRef.current) {
+      videoRef.current.currentTime = 0;
+    }
+
+  }, [video._id]);
 
 
 
@@ -112,6 +146,27 @@ export default function VideoPlayer({ video }: VideoPlayerProps) {
   // Hide loader when video resumes
   const handlePlaying = () => {
     setIsLoading(false);
+  };
+
+  const handleEnded = () => {
+    setIsEnded(true);
+  };
+
+  const replayVideo = () => {
+    const videoElement = videoRef.current;
+
+    if (!videoElement) return;
+
+    videoElement.currentTime = 0;
+    videoElement.play();
+
+    setIsEnded(false);
+  };
+
+  const playNextVideo = () => {
+    if (!nextVideo) return;
+
+    router.push(`/watch/${nextVideo._id}`);
   };
 
 
@@ -301,10 +356,7 @@ export default function VideoPlayer({ video }: VideoPlayerProps) {
       onPointerDown={handlePointerDown}
       onContextMenu={(e) => e.preventDefault()}
       className="relative aspect-video w-full overflow-hidden rounded-xl bg-black touch-none select-none"
-
-
     >
-
 
       {/* Video */}
       <video
@@ -318,13 +370,53 @@ export default function VideoPlayer({ video }: VideoPlayerProps) {
         onPause={handlePause}
         onWaiting={handleWaiting}
         onPlaying={handlePlaying}
+        onEnded={handleEnded}
       />
 
+
+      {/* Loading State */}
       {isLoading && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/40 text-white">
           <div className="h-10 w-10 animate-spin rounded-full border-4 border-white border-t-transparent"></div>
         </div>
       )}
+
+
+      {/* Video Finished Overlay */}
+      {isEnded && (
+        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 bg-black/70 text-white">
+
+          <h2 className="text-xl font-semibold">
+            Video Finished
+          </h2>
+
+
+          <div className="flex gap-4">
+
+            {/* Play Again */}
+            <button
+              onClick={replayVideo}
+              className="rounded-full bg-white px-5 py-2 text-black transition hover:bg-gray-200"
+            >
+              ▶ Play Again
+            </button>
+
+
+            {/* Next Video */}
+            {nextVideo && (
+              <button
+                onClick={playNextVideo}
+                className="rounded-full bg-white px-5 py-2 text-black transition hover:bg-gray-200"
+              >
+                ⏭ Next Video
+              </button>
+            )}
+
+          </div>
+
+        </div>
+      )}
+
 
 
       {/* Custom Controls */}
@@ -337,42 +429,52 @@ export default function VideoPlayer({ video }: VideoPlayerProps) {
           max={duration}
           value={currentTime}
           onChange={handleSeek}
-          className="mb-3 w-full cursor-pointer"
+          className="
+mb-3 
+h-1.5 
+w-full 
+cursor-pointer 
+accent-white
+"
         />
 
 
         {/* Bottom Controls */}
-        <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+
 
           {/* Left Controls */}
-          <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
+
 
             {/* Skip Backward */}
             <button
               onClick={skipBackward}
-              className="rounded-full bg-white/90 px-3 py-2 text-black transition hover:bg-white"
+              className="rounded-full bg-white/90 p-2 text-black transition hover:bg-white"
+              title="Rewind 10 seconds"
             >
-              ⏪ 10s
+              <RotateCcw size={20} />
             </button>
 
 
             {/* Play / Pause */}
             <button
               onClick={togglePlay}
-              className="rounded-full bg-white/90 px-4 py-2 text-black transition hover:bg-white"
+              className="rounded-full bg-white/90 p-2 text-black transition hover:bg-white"
+              title={isPlaying ? "Pause" : "Play"}
             >
-              {isPlaying ? "Pause" : "Play"}
+              {isPlaying ? <Pause size={20} /> : <Play size={20} />}
             </button>
 
 
             {/* Mute / Unmute */}
             <button
               onClick={toggleMute}
-              className="rounded-full bg-white/90 px-3 py-2 text-black transition hover:bg-white"
+              className="rounded-full bg-white/90 p-2 text-black transition hover:bg-white"
+              title={isMuted ? "Unmute" : "Mute"}
             >
-              {isMuted ? "Mute" : "Volume"}
+              {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
             </button>
-
 
             {/* Volume Slider */}
             <input
@@ -382,14 +484,17 @@ export default function VideoPlayer({ video }: VideoPlayerProps) {
               step={0.01}
               value={volume}
               onChange={handleVolumeChange}
-              className="w-32 cursor-pointer"
+             className="hidden w-32 cursor-pointer sm:block"
             />
+
 
           </div>
 
 
+
           {/* Right Controls */}
           <div className="flex items-center gap-3">
+
 
             {/* Time Display */}
             <div className="text-sm font-medium">
@@ -397,28 +502,36 @@ export default function VideoPlayer({ video }: VideoPlayerProps) {
             </div>
 
 
+
             {/* Skip Forward */}
             <button
               onClick={skipForward}
-              className="rounded-full bg-white/90 px-3 py-2 text-black transition hover:bg-white"
+              className="rounded-full bg-white/90 p-2 text-black transition hover:bg-white"
+              title="Forward 10 seconds"
             >
-              10s ⏩
+              <RotateCw size={20} />
             </button>
+
 
 
             {/* Fullscreen Button */}
             <button
               onClick={toggleFullscreen}
-              className="rounded-full bg-white/90 px-3 py-2 text-black transition hover:bg-white"
+              className="rounded-full bg-white/90 p-2 text-black transition hover:bg-white"
+              title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
             >
-              {isFullscreen ? "Exit" : "Fullscreen"}
+              {isFullscreen ? <Minimize size={20} /> : <Maximize size={20} />}
             </button>
+
 
           </div>
 
+
         </div>
 
+
       </div>
+
 
     </div>
   );
