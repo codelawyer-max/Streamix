@@ -1,24 +1,24 @@
-import React,{useState} from "react";
+import React, { useState } from "react";
 
 import AxiosInstance from "@/lib/AxiosInstance";
 
-import {useUser} from "@/lib/AuthContext";
+import { useUser } from "@/lib/AuthContext";
 
 
 
-interface ChannelDialogueProps{
+interface ChannelDialogueProps {
 
-    isOpen:boolean;
+    isOpen: boolean;
 
-    onClose:()=>void;
+    onClose: () => void;
 
-    mode:"create"|"edit";
+    mode: "create" | "edit";
 
     onSave?:
-    (data:{
-        name:string;
-        description:string;
-    })=>void;
+    (data: {
+        name: string;
+        description: string;
+    }) => void;
 
 }
 
@@ -35,258 +35,299 @@ export default function ChannelDialogue({
 
     onSave
 
-}:ChannelDialogueProps){
+}: ChannelDialogueProps) {
 
 
 
-const {
-    user,
-    login
-}=useUser();
+    const {
+        user,
+        login
+    } = useUser();
 
 
 
-const [name,setName]=useState("");
+    const [name, setName] = useState("");
 
-const [description,setDescription]=useState("");
+    const [description, setDescription] = useState("");
 
-const [loading,setLoading]=useState(false);
+    const [loading, setLoading] = useState(false);
+    const [location, setLocation] = useState("");
 
+    const [showLocation, setShowLocation] = useState(false);
 
 
 
 
 
-const handleSubmit=async(
-e:React.FormEvent
-)=>{
 
+    const handleSubmit = async (
+        e: React.FormEvent
+    ) => {
 
-e.preventDefault();
 
+        e.preventDefault();
 
 
-if(!name.trim()) return;
 
+        if (!name.trim()) return;
 
 
-if(!user?._id){
 
-console.log("User missing");
+        if (!user?._id) {
 
-return;
+            console.log("User missing");
 
-}
+            return;
 
+        }
 
 
-try{
 
+        try {
 
-setLoading(true);
 
+            setLoading(true);
 
 
 
-const response =
-await AxiosInstance.patch(
+            console.log("USER ID:", user?._id);
 
-`/user/update/${user._id}`,
+            const response =
+                await AxiosInstance.patch(
 
-{
+                    `/user/update/${user._id}`,
 
-channelname:name,
+                    {
 
-description:description
+                        channelname: name,
 
-}
+                        description: description,
 
-);
+                        location: location,
 
+                        showLocation: showLocation
 
+                    }
 
+                );
 
 
-login(response.data);
 
 
 
+            login(response.data);
 
 
-if(onSave){
 
-onSave({
 
-name,
 
-description
+            if (onSave) {
 
-});
+                onSave({
 
-}
+                    name,
 
+                    description
 
+                });
 
+            }
 
 
-setName("");
 
-setDescription("");
 
-onClose();
 
+            setName("");
 
+            setDescription("");
 
+            onClose();
 
-}catch(error){
 
 
-console.error(
-"Channel update error",
-error
-);
 
+        } catch (error) {
 
 
-}finally{
+            console.error(
+                "Channel update error",
+                error
+            );
 
 
-setLoading(false);
 
+        } finally {
 
-}
 
+            setLoading(false);
 
 
-};
+        }
 
 
 
+    };
 
 
-if(!isOpen)
-return null;
 
 
 
+    if (!isOpen)
+        return null;
 
 
 
-return (
 
-<div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
 
 
-<div className="bg-white rounded-xl p-6 w-full max-w-md">
+    return (
 
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
 
-<h2 className="text-xl font-semibold mb-4">
 
-{
-mode==="create"
-?
-"Create Channel"
-:
-"Edit Channel"
-}
+            <div className="bg-white rounded-xl p-6 w-full max-w-md">
 
-</h2>
 
+                <h2 className="text-xl font-semibold mb-4">
 
+                    {
+                        mode === "create"
+                            ?
+                            "Create Channel"
+                            :
+                            "Edit Channel"
+                    }
 
-<form onSubmit={handleSubmit}>
+                </h2>
 
 
-<input
 
-value={name}
+                <form onSubmit={handleSubmit}>
 
-onChange={(e)=>
-setName(e.target.value)
-}
 
-placeholder="Channel name"
+                    <input
 
-className="w-full border p-3 rounded mb-3"
+                        value={name}
 
-/>
+                        onChange={(e) =>
+                            setName(e.target.value)
+                        }
 
+                        placeholder="Channel name"
 
+                        className="w-full border p-3 rounded mb-3"
 
+                    />
 
-<textarea
 
-value={description}
 
-onChange={(e)=>
-setDescription(e.target.value)
-}
 
-placeholder="Description"
+                    <textarea
 
-className="w-full border p-3 rounded mb-4"
+                        value={description}
 
-/>
+                        onChange={(e) =>
+                            setDescription(e.target.value)
+                        }
 
+                        placeholder="Description"
 
+                        className="w-full border p-3 rounded mb-4"
 
+                    />
 
-<div className="flex justify-end gap-3">
+                    <input
 
+                        value={location}
 
-<button
+                        onChange={(e) =>
+                            setLocation(e.target.value)
+                        }
 
-type="button"
+                        placeholder="Location"
 
-onClick={onClose}
+                        className="w-full border p-3 rounded mb-3"
 
-className="px-4 py-2 bg-gray-200 rounded"
+                    />
 
->
 
-Cancel
+                    <label className="flex items-center gap-2 mb-4">
 
-</button>
+                        <input
 
+                            type="checkbox"
 
+                            checked={showLocation}
 
+                            onChange={(e) =>
+                                setShowLocation(e.target.checked)
+                            }
 
-<button
+                        />
 
-disabled={loading}
+                        Show Location
 
-className="px-4 py-2 bg-red-600 text-white rounded"
+                    </label>
 
->
 
 
-{
-loading
-?
-"Saving..."
-:
-"Create"
-}
 
+                    <div className="flex justify-end gap-3">
 
-</button>
 
+                        <button
 
+                            type="button"
 
-</div>
+                            onClick={onClose}
 
+                            className="px-4 py-2 bg-gray-200 rounded"
 
+                        >
 
-</form>
+                            Cancel
 
+                        </button>
 
 
-</div>
 
 
-</div>
+                        <button
 
-);
+                            disabled={loading}
+
+                            className="px-4 py-2 bg-red-600 text-white rounded"
+
+                        >
+
+
+                            {
+                                loading
+                                    ?
+                                    "Saving..."
+                                    :
+                                    "Create"
+                            }
+
+
+                        </button>
+
+
+
+                    </div>
+
+
+
+                </form>
+
+
+
+            </div>
+
+
+        </div>
+
+    );
 
 
 }

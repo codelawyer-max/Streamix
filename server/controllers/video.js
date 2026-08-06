@@ -1,4 +1,5 @@
 import Video from "../modals/video.js";
+import User from "../modals/auth.js";
 
 export const uploadVideo = async (req, res) => {
   try {
@@ -16,6 +17,7 @@ export const uploadVideo = async (req, res) => {
       filesize: req.file.size,
       videochannel: req.body.videochannel,
       uploader: req.body.uploader,
+      requiredPlan: req.body.requiredPlan || "free",
     });
 
 
@@ -50,4 +52,58 @@ export const getAllVideos = async (req, res) => {
       message: "Something went wrong.",
     });
   }
+};
+
+export const getVideoById = async (req, res) => {
+
+  const { id } = req.params;
+  const { userId } = req.query;
+
+  if (!userId) {
+    return res.status(400).json({
+      message: "User ID required",
+    });
+  }
+
+  try {
+
+    const video = await Video.findById(id);
+
+    if (!video) {
+      return res.status(404).json({
+        message: "Video not found",
+      });
+    }
+
+    const user = await User.findById(userId);
+
+    const planRank = {
+      free: 0,
+      bronze: 1,
+      silver: 2,
+      gold: 3,
+    };
+
+    const userPlan = user?.plan || "free";
+    const requiredPlan = video.requiredPlan || "free";
+
+    const hasAccess =
+      planRank[userPlan] >=
+      planRank[requiredPlan];
+
+    return res.status(200).json({
+      result: video,
+      hasAccess,
+    });
+
+  } catch (error) {
+
+    console.error(error);
+
+    return res.status(500).json({
+      message: "Something went wrong",
+    });
+
+  }
+
 };

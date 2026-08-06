@@ -37,6 +37,12 @@ const videoSchema = new mongoose.Schema(
       required: true,
     },
 
+    requiredPlan: {
+      type: String,
+      enum: ["free", "bronze", "silver", "gold"],
+      default: "free",
+    },
+
     like: {
       type: Number,
       default: 0,

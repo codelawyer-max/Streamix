@@ -4,6 +4,7 @@ import upload from "../filehelper/filehelper.js";
 import {
   uploadVideo,
   getAllVideos,
+  getVideoById,
 } from "../controllers/video.js";
 
 const router = express.Router();
@@ -17,6 +18,11 @@ router.post(
 router.get(
   "/getall",
   getAllVideos
+);
+
+router.get(
+  "/:id",
+  getVideoById
 );
 
 export default router;

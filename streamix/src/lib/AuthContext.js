@@ -17,6 +17,8 @@ import {
 } from "./firebase";
 
 import AxiosInstance from "./AxiosInstance";
+import { useTheme } from "./ThemeContext";
+
 
 
 
@@ -24,28 +26,43 @@ const UserContext = createContext();
 
 
 
-export const UserProvider = ({children})=>{
-
-
-    const [user,setUser] = useState(null);
-
-    const [loading,setLoading] = useState(true);
+export const UserProvider = ({ children }) => {
 
 
 
-    const login = (userData)=>{
+    const [user, setUser] = useState(null);
+
+    const [loading, setLoading] = useState(true);
+
+    const [otpRequired, setOtpRequired] = useState(false);
+
+    const [otpEmail, setOtpEmail] = useState("");
+
+    const { setTheme } = useTheme();
+
+
+
+
+
+    const login = (userData) => {
 
 
         const updatedUser =
-        userData.result
-        ?
-        userData.result
-        :
-        userData;
-
+            userData.result
+                ?
+                userData.result
+                :
+                userData;
 
 
         setUser(updatedUser);
+
+
+        if (updatedUser.theme) {
+
+            setTheme(updatedUser.theme);
+
+        }
 
 
         localStorage.setItem(
@@ -59,10 +76,10 @@ export const UserProvider = ({children})=>{
 
 
 
-    const logout = async()=>{
+    const logout = async () => {
 
 
-        try{
+        try {
 
 
             await signOut(auth);
@@ -75,7 +92,7 @@ export const UserProvider = ({children})=>{
 
 
 
-        }catch(error){
+        } catch (error) {
 
 
             console.error(
@@ -90,39 +107,128 @@ export const UserProvider = ({children})=>{
     };
 
 
+    const getDeviceInfo = () => {
+
+        const userAgent = navigator.userAgent;
+
+        let browser = "Unknown Browser";
+        let os = "Unknown OS";
+
+
+        if (userAgent.includes("Edg")) {
+            browser = "Edge";
+        }
+        else if (userAgent.includes("Chrome")) {
+            browser = "Chrome";
+        }
+        else if (userAgent.includes("Firefox")) {
+            browser = "Firefox";
+        }
+        else if (userAgent.includes("Safari")) {
+            browser = "Safari";
+        }
+
+
+        if (userAgent.includes("Windows")) {
+            os = "Windows";
+        }
+        else if (userAgent.includes("Android")) {
+            os = "Android";
+        }
+        else if (userAgent.includes("iPhone")) {
+            os = "iPhone";
+        }
+        else if (userAgent.includes("Mac")) {
+            os = "Mac";
+        }
+
+
+        return `${browser} on ${os}`;
+
+    };
+
+    const getLocationInfo = async () => {
+
+        try {
+
+            const response =
+                await fetch(
+                    "https://ipapi.co/json/"
+                );
+
+
+            const data =
+                await response.json();
+
+
+            return {
+
+                city: data.city || "",
+
+                state: data.region || ""
+
+            };
+
+
+        } catch (error) {
+
+            console.log(
+                "Location fetch error:",
+                error
+            );
+
+
+            return {
+
+                city: "",
+
+                state: ""
+
+            };
+
+        }
+
+    };
 
 
 
 
-    const handlegooglesignin = async()=>{
+    const handlegooglesignin = async () => {
 
 
-        try{
+        try {
 
 
             const result =
-            await signInWithPopup(
-                auth,
-                provider
-            );
+                await signInWithPopup(
+                    auth,
+                    provider
+                );
 
 
 
             const firebaseuser =
-            result.user;
+                result.user;
+
+            const device = getDeviceInfo();
+            const location =
+                await getLocationInfo();
 
 
 
-            const payload={
+            const payload = {
 
-                email:
-                firebaseuser.email,
+                email: firebaseuser.email,
 
-                name:
-                firebaseuser.displayName,
+                name: firebaseuser.displayName,
 
-                image:
-                firebaseuser.photoURL
+                image: firebaseuser.photoURL,
+
+                device,
+
+                city: location.city,
+
+                state: location.state
 
             };
 
@@ -130,18 +236,31 @@ export const UserProvider = ({children})=>{
 
 
             const response =
-            await AxiosInstance.post(
-                "/user/login",
-                payload
-            );
+                await AxiosInstance.post(
+                    "/user/login",
+                    payload
+                );
 
+
+
+            if (response.data.otpRequired) {
+
+                setOtpRequired(true);
+
+                setOtpEmail(
+                    response.data.email
+                );
+
+                return;
+
+            }
 
 
             login(response.data);
 
 
 
-        }catch(error){
+        } catch (error) {
 
 
             console.error(
@@ -161,15 +280,15 @@ export const UserProvider = ({children})=>{
 
 
 
-    useEffect(()=>{
+    useEffect(() => {
 
 
         const storedUser =
-        localStorage.getItem("user");
+            localStorage.getItem("user");
 
 
 
-        if(storedUser){
+        if (storedUser) {
 
 
             setUser(
@@ -184,71 +303,38 @@ export const UserProvider = ({children})=>{
 
 
         const unsubscribe =
-        onAuthStateChanged(
-            auth,
-            async(firebaseuser)=>{
+            onAuthStateChanged(
+                auth,
+                async (firebaseuser) => {
 
+                    if (firebaseuser) {
 
-                if(firebaseuser){
+                        const storedUser = localStorage.getItem("user");
 
+                        if (storedUser) {
 
-                    try{
+                            login(JSON.parse(storedUser));
 
-
-                        const payload={
-
-                            email:
-                            firebaseuser.email,
-
-                            name:
-                            firebaseuser.displayName,
-
-                            image:
-                            firebaseuser.photoURL
-
-                        };
-
-
-
-                        const response =
-                        await AxiosInstance.post(
-                            "/user/login",
-                            payload
-                        );
-
-
-
-                        login(response.data);
-
-
-
-                    }catch(error){
-
-
-                        console.error(error);
-
+                        }
 
                     }
 
 
+
+                    setLoading(false);
+
+
+
                 }
+            );
 
 
 
-                setLoading(false);
+        return () => unsubscribe();
 
 
 
-            }
-        );
-
-
-
-        return ()=>unsubscribe();
-
-
-
-    },[]);
+    }, []);
 
 
 
@@ -260,14 +346,18 @@ export const UserProvider = ({children})=>{
 
         <UserContext.Provider
 
-        value={{
-            user,
-            setUser,
-            login,
-            logout,
-            handlegooglesignin,
-            loading
-        }}
+            value={{
+                user,
+                setUser,
+                login,
+                logout,
+                handlegooglesignin,
+                loading,
+
+                otpRequired,
+                otpEmail,
+                setOtpRequired
+            }}
 
         >
 
@@ -285,5 +375,5 @@ export const UserProvider = ({children})=>{
 
 
 
-export const useUser = ()=>
-useContext(UserContext);
+export const useUser = () =>
+    useContext(UserContext);
