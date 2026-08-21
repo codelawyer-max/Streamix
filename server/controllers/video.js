@@ -1,5 +1,6 @@
 import Video from "../modals/video.js";
 import User from "../modals/auth.js";
+import Download from "../modals/download.js";
 
 export const uploadVideo = async (req, res) => {
   try {
@@ -55,9 +56,8 @@ export const getAllVideos = async (req, res) => {
 };
 
 export const getVideoById = async (req, res) => {
-
   const { id } = req.params;
-  const { userId } = req.query;
+  const { userId, downloaded } = req.query;
 
   if (!userId) {
     return res.status(400).json({
@@ -66,7 +66,6 @@ export const getVideoById = async (req, res) => {
   }
 
   try {
-
     const video = await Video.findById(id);
 
     if (!video) {
@@ -87,23 +86,48 @@ export const getVideoById = async (req, res) => {
     const userPlan = user?.plan || "free";
     const requiredPlan = video.requiredPlan || "free";
 
+    // Normal subscription-based access
+    const hasSubscriptionAccess =
+      planRank[userPlan] >= planRank[requiredPlan];
+
+    let hasDownloadedAccess = false;
+
+    // If the request came from Downloads,
+    // verify that this user actually downloaded this video.
+    if (downloaded === "true") {
+      const existingDownload = await Download.findOne({
+        userId,
+        videoId: id,
+      });
+
+      hasDownloadedAccess = !!existingDownload;
+    }
+
+    console.log("===== VIDEO ACCESS DEBUG =====");
+    console.log("User ID:", userId);
+    console.log("Video ID:", id);
+    console.log("Downloaded Query:", downloaded);
+    console.log("User Plan:", userPlan);
+    console.log("Required Plan:", requiredPlan);
+    console.log("Subscription Access:", hasSubscriptionAccess);
+    console.log("Downloaded Access:", hasDownloadedAccess);
+    console.log("================================");
+
     const hasAccess =
-      planRank[userPlan] >=
-      planRank[requiredPlan];
+      hasSubscriptionAccess || hasDownloadedAccess;
 
     return res.status(200).json({
       result: video,
       hasAccess,
+      hasSubscriptionAccess,
+      hasDownloadedAccess,
     });
 
   } catch (error) {
-
-    console.error(error);
+    console.error("Get Video By ID Error:", error);
 
     return res.status(500).json({
       message: "Something went wrong",
     });
-
   }
-
 };

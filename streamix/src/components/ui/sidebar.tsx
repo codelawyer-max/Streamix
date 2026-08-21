@@ -9,6 +9,7 @@ import {
   ThumbsUp,
   User,
   PlusCircle,
+  Download,
 } from "lucide-react";
 
 
@@ -68,26 +69,30 @@ export default function Sidebar({
 
 
   const libraryNavigation = [
+  {
+    name: "History",
+    href: "/history",
+    icon: Clock,
+  },
 
-    {
-      name:"History",
-      href:"/history",
-      icon:Clock
-    },
+  {
+    name: "Liked Videos",
+    href: "/liked",
+    icon: ThumbsUp,
+  },
 
-    {
-      name:"Liked Videos",
-      href:"/liked",
-      icon:ThumbsUp
-    },
+  {
+    name: "Watch Later",
+    href: "/watch-later",
+    icon: Clock,
+  },
 
-    {
-      name:"Watch Later",
-      href:"/watch-later",
-      icon:Clock
-    }
-
-  ];
+  {
+    name: "Downloads",
+    href: "/downloads",
+    icon: Download,
+  },
+];
 
 
 
