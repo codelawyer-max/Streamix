@@ -19,7 +19,7 @@ import subscriptionRoutes from "./routes/subscription.js";
 import downloadRoutes from "./routes/download.js";
 import registerWatchParty from "./socket/watchParty.js";
 
-console.log("Mongo URI:", process.env.DB_URL);
+
 
 const app = express();
 
