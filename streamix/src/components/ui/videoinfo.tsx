@@ -14,6 +14,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import axiosInstance from "@/lib/AxiosInstance";
 import { useUser } from "@/lib/AuthContext";
+import Link from "next/link";
 
 interface VideoInfoProps {
   video: {
@@ -29,6 +30,34 @@ interface VideoInfoProps {
   };
 }
 
+interface DownloadStatus {
+  plan: string;
+  planName?: string;
+  unlimited: boolean;
+  limit: number | null;
+  usedToday: number;
+  remaining: number | null;
+}
+
+// When axios uses responseType "blob", an error body arrives as a Blob.
+// This reads the JSON message the server sent inside that Blob.
+const readDownloadError = async (error: any): Promise<string> => {
+  const data = error?.response?.data;
+
+  if (data instanceof Blob) {
+    try {
+      const parsed = JSON.parse(await data.text());
+      return parsed.message || "Download failed. Please try again.";
+    } catch {
+      return "Download failed. Please try again.";
+    }
+  }
+
+  return (
+    error?.response?.data?.message || "Download failed. Please try again."
+  );
+};
+
 export default function VideoInfo({ video }: VideoInfoProps) {
   const { user } = useUser();
 
@@ -41,6 +70,9 @@ export default function VideoInfo({ video }: VideoInfoProps) {
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadMessage, setDownloadMessage] = useState("");
   const [downloadError, setDownloadError] = useState("");
+  const [downloadStatus, setDownloadStatus] = useState<DownloadStatus | null>(
+    null
+  );
 
   const planRank = {
     free: 0,
@@ -91,6 +123,27 @@ export default function VideoInfo({ video }: VideoInfoProps) {
 
     handleViews();
   }, [video?._id, user]);
+
+  const fetchDownloadStatus = async () => {
+    const currentUserId = user?.id || user?._id;
+
+    if (!currentUserId) {
+      setDownloadStatus(null);
+      return;
+    }
+
+    try {
+      const res = await axiosInstance.get(`/download/status/${currentUserId}`);
+      setDownloadStatus(res.data);
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  useEffect(() => {
+    fetchDownloadStatus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, user?._id]);
 
   const handleLike = async () => {
     const currentUserId = user?.id || user?._id;
@@ -190,6 +243,18 @@ export default function VideoInfo({ video }: VideoInfoProps) {
       return;
     }
 
+    // Quick check in the browser. The SERVER makes the real decision.
+    if (
+      downloadStatus &&
+      !downloadStatus.unlimited &&
+      downloadStatus.remaining === 0
+    ) {
+      setDownloadError(
+        `You have used all ${downloadStatus.limit} download(s) for today. Upgrade your plan for more.`
+      );
+      return;
+    }
+
     setIsDownloading(true);
     setDownloadMessage("");
     setDownloadError("");
@@ -208,12 +273,22 @@ export default function VideoInfo({ video }: VideoInfoProps) {
 
       const downloadUrl = window.URL.createObjectURL(response.data);
 
+      // Keep the real file extension (mp4, webm, ...)
+      const rawExtension =
+        video.filepath?.split(".").pop()?.toLowerCase() || "mp4";
+      const extension = /^[a-z0-9]{2,5}$/.test(rawExtension)
+        ? rawExtension
+        : "mp4";
+
+      const safeTitle =
+        (video.videotitle || "video")
+          .replace(/[\\/:*?"<>|]+/g, "")
+          .trim() || "video";
+
       const link = document.createElement("a");
 
       link.href = downloadUrl;
-      link.download = video.videotitle
-        ? `${video.videotitle}.mp4`
-        : "video.mp4";
+      link.download = `${safeTitle}.${extension}`;
 
       document.body.appendChild(link);
       link.click();
@@ -225,11 +300,11 @@ export default function VideoInfo({ video }: VideoInfoProps) {
     } catch (error) {
       console.error("Download Error:", error);
 
-      setDownloadError(
-        "Download failed. You may have reached your daily limit."
-      );
+      // Shows the server's real reason (daily limit, plan required, ...)
+      setDownloadError(await readDownloadError(error));
     } finally {
       setIsDownloading(false);
+      fetchDownloadStatus();
     }
   };
 
@@ -394,6 +469,27 @@ export default function VideoInfo({ video }: VideoInfoProps) {
       {downloadError && (
         <p className="text-sm font-medium text-red-600">
           {downloadError}
+        </p>
+      )}
+
+      {/* Today's download usage */}
+      {downloadStatus && (
+        <p className="text-xs text-gray-500">
+          {downloadStatus.planName || downloadStatus.plan} plan:{" "}
+          {downloadStatus.unlimited
+            ? "unlimited downloads"
+            : `${downloadStatus.usedToday} of ${downloadStatus.limit} downloads used today`}
+          {!downloadStatus.unlimited && downloadStatus.remaining === 0 && (
+            <>
+              {" "}
+              <Link
+                href="/subscription"
+                className="font-semibold text-red-600 hover:underline"
+              >
+                Upgrade for more
+              </Link>
+            </>
+          )}
         </p>
       )}
 
