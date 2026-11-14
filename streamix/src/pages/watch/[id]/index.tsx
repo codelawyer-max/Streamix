@@ -1,5 +1,7 @@
 import { useRouter } from "next/router";
+import Link from "next/link";
 import React, { useEffect, useState } from "react";
+import { Lock, Users } from "lucide-react";
 import axiosInstance from "@/lib/AxiosInstance";
 import { Comments } from "@/components/ui/comments";
 import RelatedVideos from "@/components/ui/relatedvideos";
@@ -19,79 +21,126 @@ export interface VideoData {
   requiredPlan?: "free" | "bronze" | "silver" | "gold";
 }
 
+interface PlanInfo {
+  name: string;
+  watchLimitMinutes: number | null;
+  adFree: boolean;
+}
+
 const WatchPage = () => {
   const router = useRouter();
   const { id, downloaded } = router.query;
   const { user } = useUser();
 
+  const userId = user?._id;
+
   const [currentVideo, setCurrentVideo] = useState<VideoData | null>(null);
   const [allVideos, setAllVideos] = useState<VideoData[]>([]);
   const [loading, setLoading] = useState(true);
-
+  const [loadError, setLoadError] = useState("");
   const [videoAccess, setVideoAccess] = useState(true);
+  const [planInfo, setPlanInfo] = useState<PlanInfo | null>(null);
+
+  // The user object loads a moment after the page. After this delay with no
+  // user we tell the visitor to log in instead of loading forever.
+  const [waitedForLogin, setWaitedForLogin] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setWaitedForLogin(true), 2000);
+
+    return () => clearTimeout(timer);
+  }, []);
 
   const currentVideoIndex = allVideos.findIndex(
     (video) => video._id === currentVideo?._id
   );
 
-
-
-
-
   const nextVideo =
-    currentVideoIndex >= 0 &&
-      currentVideoIndex < allVideos.length - 1
+    currentVideoIndex >= 0 && currentVideoIndex < allVideos.length - 1
       ? allVideos[currentVideoIndex + 1]
       : null;
 
   useEffect(() => {
+    if (!id || typeof id !== "string" || !userId) return;
+
+    let cancelled = false;
+
     const fetchVideoData = async () => {
-      if (!id || typeof id !== "string") return;
-
       try {
-        const userId = user?._id;
-
-        if (!userId) {
-          console.log("User not loaded yet");
-          return;
-        }
+        setLoading(true);
+        setLoadError("");
 
         const downloadedParam =
           downloaded === "true" ? "&downloaded=true" : "";
 
-        const videoResponse = await axiosInstance.get(
-          `/video/${id}?userId=${userId}${downloadedParam}`
+        // The video and the user's plan are loaded together, so the plan's
+        // watch limit is known before the first frame plays.
+        const [videoResponse, statusResponse] = await Promise.all([
+          axiosInstance.get(`/video/${id}?userId=${userId}${downloadedParam}`),
+          axiosInstance
+            .get(`/subscription/status/${userId}`)
+            .catch(() => null),
+        ]);
+
+        if (cancelled) return;
+
+        const benefits = statusResponse?.data?.benefits;
+
+        setPlanInfo(
+          benefits
+            ? {
+                name: benefits.name,
+                watchLimitMinutes: benefits.watchLimitMinutes ?? null,
+                adFree: Boolean(benefits.adFree),
+              }
+            : null
         );
 
         setVideoAccess(videoResponse.data.hasAccess);
-
         setCurrentVideo(videoResponse.data.result);
 
-        // If user does not have access, stop here.
-        if (!videoResponse.data.hasAccess) {
-          return;
-        }
+        // Related / next videos (also shown next to a locked video)
+        const videosResponse = await axiosInstance
+          .get("/video/getall")
+          .catch(() => null);
 
-        // Fetch all videos for related videos / next video.
-        const videosResponse = await axiosInstance.get("/video/getall");
+        if (cancelled) return;
 
-        const videosList: VideoData[] = Array.isArray(videosResponse.data)
-          ? videosResponse.data
-          : videosResponse.data.result || [];
+        const videosList: VideoData[] = Array.isArray(videosResponse?.data)
+          ? videosResponse?.data
+          : videosResponse?.data?.result || [];
 
         setAllVideos(videosList);
-      } catch (error) {
-        console.error(
-          "Error fetching watch page video details:",
-          error
-        );
+      } catch (error: any) {
+        console.error("Error fetching watch page video details:", error);
+
+        if (!cancelled) {
+          setCurrentVideo(null);
+          setLoadError(
+            error?.response?.status === 404
+              ? "Video not found."
+              : "Unable to load this video. Please try again."
+          );
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
     fetchVideoData();
-  }, [id, downloaded, user?._id]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [id, downloaded, userId]);
+
+  if (!userId) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50 text-gray-500">
+        {waitedForLogin ? "Please log in to watch videos." : "Loading video..."}
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -104,12 +153,14 @@ const WatchPage = () => {
   if (!currentVideo) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50 text-gray-500">
-        Video not found.
+        {loadError || "Video not found."}
       </div>
     );
   }
 
-
+  const relatedVideos = allVideos.filter(
+    (video) => video._id !== currentVideo._id
+  );
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -126,8 +177,45 @@ const WatchPage = () => {
                   <VideoPlayer
                     video={currentVideo}
                     nextVideo={nextVideo}
+                    watchLimitMinutes={planInfo?.watchLimitMinutes ?? null}
+                    planName={planInfo?.name}
                   />
                 </div>
+
+                {/* Plan watch limit notice */}
+                {planInfo?.watchLimitMinutes && (
+                  <p className="-mt-2 text-xs text-gray-500">
+                    {planInfo.name} plan: you can watch the first{" "}
+                    {planInfo.watchLimitMinutes} minutes of each video.{" "}
+                    <Link
+                      href="/subscription"
+                      className="font-semibold text-blue-600 hover:underline"
+                    >
+                      Upgrade for longer watch time
+                    </Link>
+                  </p>
+                )}
+
+                {/* Advertisement slot (hidden on ad-free plans) */}
+                {planInfo && !planInfo.adFree && (
+                  <div className="flex items-center justify-between gap-3 rounded-xl border border-dashed border-gray-300 bg-white px-4 py-3 text-sm">
+                    <div>
+                      <span className="mr-2 rounded bg-gray-200 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-gray-600">
+                        Ad
+                      </span>
+                      <span className="text-gray-700">
+                        Sponsored content appears here.
+                      </span>
+                    </div>
+
+                    <Link
+                      href="/subscription"
+                      className="shrink-0 font-semibold text-blue-600 hover:underline"
+                    >
+                      Go ad-free
+                    </Link>
+                  </div>
+                )}
 
                 {/* Video Information */}
                 <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:p-5">
@@ -157,7 +245,7 @@ const WatchPage = () => {
                     }}
                     className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-purple-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-purple-700 active:scale-[0.98] sm:w-auto"
                   >
-                    🎉 Start Watch Party
+                    <Users size={16} /> Start Watch Party
                   </button>
                 </div>
 
@@ -170,8 +258,8 @@ const WatchPage = () => {
               /* Premium Video Restriction */
               <div className="flex aspect-video flex-col items-center justify-center rounded-2xl border border-gray-800 bg-gray-950 p-8 text-center text-white shadow-xl">
 
-                <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-yellow-500/10 text-3xl">
-                  🔒
+                <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-yellow-500/10 text-yellow-400">
+                  <Lock size={30} />
                 </div>
 
                 <h2 className="text-2xl font-bold sm:text-3xl">
@@ -200,7 +288,7 @@ const WatchPage = () => {
           {/* Related Videos Sidebar */}
           <aside className="min-w-0 lg:col-span-1">
             <div className="sticky top-20">
-              <RelatedVideos videos={allVideos} />
+              <RelatedVideos videos={relatedVideos} />
             </div>
           </aside>
 
