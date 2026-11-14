@@ -7,8 +7,7 @@ import React, {
 
 import {
     signInWithPopup,
-    signOut,
-    onAuthStateChanged
+    signOut
 } from "firebase/auth";
 
 import {
@@ -25,6 +24,80 @@ import { useTheme } from "./ThemeContext";
 const UserContext = createContext();
 
 
+// A random id that identifies THIS browser. A new browser or a cleared
+// browser means a new device, which asks for an OTP.
+const getDeviceId = () => {
+
+    const makeId = () =>
+        typeof crypto !== "undefined" && crypto.randomUUID
+            ? crypto.randomUUID()
+            : `${Date.now()}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
+
+    try {
+
+        let id = localStorage.getItem("deviceId");
+
+        if (!id) {
+
+            id = makeId();
+
+            localStorage.setItem("deviceId", id);
+
+        }
+
+        return id;
+
+    } catch (error) {
+
+        return makeId();
+
+    }
+
+};
+
+
+const getDeviceInfo = () => {
+
+    const userAgent = navigator.userAgent;
+
+    let browser = "Unknown Browser";
+    let os = "Unknown OS";
+
+
+    if (userAgent.includes("Edg")) {
+        browser = "Edge";
+    }
+    else if (userAgent.includes("Chrome")) {
+        browser = "Chrome";
+    }
+    else if (userAgent.includes("Firefox")) {
+        browser = "Firefox";
+    }
+    else if (userAgent.includes("Safari")) {
+        browser = "Safari";
+    }
+
+
+    if (userAgent.includes("Windows")) {
+        os = "Windows";
+    }
+    else if (userAgent.includes("Android")) {
+        os = "Android";
+    }
+    else if (userAgent.includes("iPhone")) {
+        os = "iPhone";
+    }
+    else if (userAgent.includes("Mac")) {
+        os = "Mac";
+    }
+
+
+    return `${browser} on ${os}`;
+
+};
+
+
+
 
 export const UserProvider = ({ children }) => {
 
@@ -38,12 +111,14 @@ export const UserProvider = ({ children }) => {
 
     const [otpEmail, setOtpEmail] = useState("");
 
+    const [otpSessionId, setOtpSessionId] = useState("");
+
     const { setTheme } = useTheme();
 
 
 
 
-
+    // Called with the server's login response: { token, result }
     const login = (userData) => {
 
 
@@ -53,6 +128,16 @@ export const UserProvider = ({ children }) => {
                 userData.result
                 :
                 userData;
+
+
+        if (userData.token) {
+
+            localStorage.setItem(
+                "token",
+                userData.token
+            );
+
+        }
 
 
         setUser(updatedUser);
@@ -75,31 +160,35 @@ export const UserProvider = ({ children }) => {
 
 
 
+    const clearSession = () => {
+
+        setUser(null);
+
+        localStorage.removeItem("user");
+
+        localStorage.removeItem("token");
+
+    };
+
+
 
     const logout = async () => {
 
 
         try {
 
-
             await signOut(auth);
 
-
-            setUser(null);
-
-
-            localStorage.removeItem("user");
-
-
-
         } catch (error) {
-
 
             console.error(
                 "Logout error:",
                 error
             );
 
+        } finally {
+
+            clearSession();
 
         }
 
@@ -107,84 +196,21 @@ export const UserProvider = ({ children }) => {
     };
 
 
-    const getDeviceInfo = () => {
 
-        const userAgent = navigator.userAgent;
+    // Close the OTP box and forget the half-finished login
+    const cancelOtp = async () => {
 
-        let browser = "Unknown Browser";
-        let os = "Unknown OS";
+        setOtpRequired(false);
 
-
-        if (userAgent.includes("Edg")) {
-            browser = "Edge";
-        }
-        else if (userAgent.includes("Chrome")) {
-            browser = "Chrome";
-        }
-        else if (userAgent.includes("Firefox")) {
-            browser = "Firefox";
-        }
-        else if (userAgent.includes("Safari")) {
-            browser = "Safari";
-        }
-
-
-        if (userAgent.includes("Windows")) {
-            os = "Windows";
-        }
-        else if (userAgent.includes("Android")) {
-            os = "Android";
-        }
-        else if (userAgent.includes("iPhone")) {
-            os = "iPhone";
-        }
-        else if (userAgent.includes("Mac")) {
-            os = "Mac";
-        }
-
-
-        return `${browser} on ${os}`;
-
-    };
-
-    const getLocationInfo = async () => {
+        setOtpSessionId("");
 
         try {
 
-            const response =
-                await fetch(
-                    "https://ipapi.co/json/"
-                );
-
-
-            const data =
-                await response.json();
-
-
-            return {
-
-                city: data.city || "",
-
-                state: data.region || ""
-
-            };
-
+            await signOut(auth);
 
         } catch (error) {
 
-            console.log(
-                "Location fetch error:",
-                error
-            );
-
-
-            return {
-
-                city: "",
-
-                state: ""
-
-            };
+            console.error(error);
 
         }
 
@@ -206,50 +232,34 @@ export const UserProvider = ({ children }) => {
                 );
 
 
-
-            const firebaseuser =
-                result.user;
-
-            const device = getDeviceInfo();
-            const location =
-                await getLocationInfo();
-
-
-
-            const payload = {
-
-                email: firebaseuser.email,
-
-                name: firebaseuser.displayName,
-
-                image: firebaseuser.photoURL,
-
-                device,
-
-                city: location.city,
-
-                state: location.state
-
-            };
-
-
+            // Google's proof of who signed in. The server checks it.
+            const idToken =
+                await result.user.getIdToken();
 
 
             const response =
                 await AxiosInstance.post(
                     "/user/login",
-                    payload
+                    {
+                        idToken,
+                        deviceId: getDeviceId(),
+                        device: getDeviceInfo()
+                    }
                 );
 
 
 
             if (response.data.otpRequired) {
 
-                setOtpRequired(true);
-
                 setOtpEmail(
                     response.data.email
                 );
+
+                setOtpSessionId(
+                    response.data.otpSessionId
+                );
+
+                setOtpRequired(true);
 
                 return;
 
@@ -265,7 +275,7 @@ export const UserProvider = ({ children }) => {
 
             console.error(
                 "Google Sign In Error:",
-                error
+                error?.response?.data?.message || error
             );
 
 
@@ -283,55 +293,100 @@ export const UserProvider = ({ children }) => {
     useEffect(() => {
 
 
-        const storedUser =
-            localStorage.getItem("user");
+        let cancelled = false;
 
 
+        const restoreSession = async () => {
 
-        if (storedUser) {
+            const storedUser =
+                localStorage.getItem("user");
 
-
-            setUser(
-                JSON.parse(storedUser)
-            );
-
-
-        }
+            const token =
+                localStorage.getItem("token");
 
 
+            // Logged in before the login token existed: log in again
+            if (storedUser && !token) {
+
+                localStorage.removeItem("user");
+
+            }
 
 
+            if (storedUser && token) {
 
-        const unsubscribe =
-            onAuthStateChanged(
-                auth,
-                async (firebaseuser) => {
+                try {
 
-                    if (firebaseuser) {
+                    const parsed = JSON.parse(storedUser);
 
-                        const storedUser = localStorage.getItem("user");
+                    setUser(parsed);
 
-                        if (storedUser) {
+                    if (parsed.theme) {
 
-                            login(JSON.parse(storedUser));
-
-                        }
+                        setTheme(parsed.theme);
 
                     }
-
-
 
                     setLoading(false);
 
 
+                    // Refresh from the server: latest plan, theme, profile
+                    const response =
+                        await AxiosInstance.get(
+                            `/user/${parsed._id}`
+                        );
+
+                    if (!cancelled && response.data.result) {
+
+                        setUser(response.data.result);
+
+                        localStorage.setItem(
+                            "user",
+                            JSON.stringify(response.data.result)
+                        );
+
+                    }
+
+                } catch (error) {
+
+                    // A 401 is handled by the "auth-expired" event below.
+                    // Any other problem (offline...) keeps the saved user.
 
                 }
+
+            }
+
+
+            if (!cancelled) {
+
+                setLoading(false);
+
+            }
+
+        };
+
+
+        restoreSession();
+
+
+        const handleExpired = () => clearSession();
+
+        window.addEventListener(
+            "auth-expired",
+            handleExpired
+        );
+
+
+        return () => {
+
+            cancelled = true;
+
+            window.removeEventListener(
+                "auth-expired",
+                handleExpired
             );
 
-
-
-        return () => unsubscribe();
-
+        };
 
 
     }, []);
@@ -356,7 +411,9 @@ export const UserProvider = ({ children }) => {
 
                 otpRequired,
                 otpEmail,
-                setOtpRequired
+                otpSessionId,
+                setOtpRequired,
+                cancelOtp
             }}
 
         >

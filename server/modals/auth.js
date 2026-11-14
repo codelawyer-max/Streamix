@@ -1,5 +1,18 @@
 import mongoose from "mongoose";
 
+// Devices this user has already verified. Never sent to the browser
+// (select: false keeps it out of every query unless asked for).
+const trustedDeviceSchema = new mongoose.Schema(
+    {
+        deviceId: { type: String, required: true },
+        label: { type: String, default: "" },
+        city: { type: String, default: "" },
+        state: { type: String, default: "" },
+        lastSeen: { type: Date, default: Date.now },
+    },
+    { _id: false }
+);
+
 const userschema = mongoose.Schema({
     name: { type: String },
 
@@ -27,6 +40,14 @@ const userschema = mongoose.Schema({
     theme: {
         type: String,
         enum: ["light", "dark"]
+    },
+
+    // "auto"   = the login-time rule (light 10:00-12:00 IST) decides
+    // "manual" = the user picked a theme, so it is kept
+    themeSource: {
+        type: String,
+        enum: ["auto", "manual"],
+        default: "auto"
     },
 
     plan: {
@@ -69,6 +90,12 @@ const userschema = mongoose.Schema({
 
     lastLogin: {
         type: Date
+    },
+
+    trustedDevices: {
+        type: [trustedDeviceSchema],
+        default: [],
+        select: false
     },
 
     joinedon: {

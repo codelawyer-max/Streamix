@@ -4,14 +4,25 @@ import {
     getDownloadStatus,
     getUserDownloads,
 } from "../controllers/download.js";
+import { requireAuth, requireSelf } from "../middleware/auth.js";
 
 const router = express.Router();
 
-router.post("/", downloadVideo);
+router.post("/", requireAuth, downloadVideo);
 
 // Must come BEFORE "/:userId", otherwise "status" is read as a user id
-router.get("/status/:userId", getDownloadStatus);
+router.get(
+    "/status/:userId",
+    requireAuth,
+    requireSelf("userId"),
+    getDownloadStatus
+);
 
-router.get("/:userId", getUserDownloads);
+router.get(
+    "/:userId",
+    requireAuth,
+    requireSelf("userId"),
+    getUserDownloads
+);
 
 export default router;

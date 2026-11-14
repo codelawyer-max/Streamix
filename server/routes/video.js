@@ -1,5 +1,6 @@
 import express from "express";
 import upload from "../filehelper/filehelper.js";
+import { requireAuth } from "../middleware/auth.js";
 
 import {
   uploadVideo,
@@ -22,6 +23,7 @@ router.get(
 
 router.get(
   "/:id",
+  requireAuth,
   getVideoById
 );
 

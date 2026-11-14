@@ -2,6 +2,28 @@ import Video from "../modals/video.js";
 import User from "../modals/auth.js";
 import Download from "../modals/download.js";
 
+const PLAN_RANK = {
+  free: 0,
+  bronze: 1,
+  silver: 2,
+  gold: 3,
+};
+
+// A paid plan that has expired counts as "free"
+const getEffectivePlan = (user) => {
+  const plan = PLAN_RANK[user?.plan] !== undefined ? user.plan : "free";
+
+  if (
+    plan !== "free" &&
+    user.subscriptionEndDate &&
+    new Date(user.subscriptionEndDate) < new Date()
+  ) {
+    return "free";
+  }
+
+  return plan;
+};
+
 export const uploadVideo = async (req, res) => {
   try {
     if (!req.file) {
@@ -57,13 +79,10 @@ export const getAllVideos = async (req, res) => {
 
 export const getVideoById = async (req, res) => {
   const { id } = req.params;
-  const { userId, downloaded } = req.query;
+  const { downloaded } = req.query;
 
-  if (!userId) {
-    return res.status(400).json({
-      message: "User ID required",
-    });
-  }
+  // Set by requireAuth from the login token, never from the URL
+  const userId = req.userId;
 
   try {
     const video = await Video.findById(id);
@@ -76,19 +95,13 @@ export const getVideoById = async (req, res) => {
 
     const user = await User.findById(userId);
 
-    const planRank = {
-      free: 0,
-      bronze: 1,
-      silver: 2,
-      gold: 3,
-    };
-
-    const userPlan = user?.plan || "free";
-    const requiredPlan = video.requiredPlan || "free";
+    const userPlan = getEffectivePlan(user);
+    const requiredPlan =
+      PLAN_RANK[video.requiredPlan] !== undefined ? video.requiredPlan : "free";
 
     // Normal subscription-based access
     const hasSubscriptionAccess =
-      planRank[userPlan] >= planRank[requiredPlan];
+      PLAN_RANK[userPlan] >= PLAN_RANK[requiredPlan];
 
     let hasDownloadedAccess = false;
 
@@ -102,16 +115,6 @@ export const getVideoById = async (req, res) => {
 
       hasDownloadedAccess = !!existingDownload;
     }
-
-    console.log("===== VIDEO ACCESS DEBUG =====");
-    console.log("User ID:", userId);
-    console.log("Video ID:", id);
-    console.log("Downloaded Query:", downloaded);
-    console.log("User Plan:", userPlan);
-    console.log("Required Plan:", requiredPlan);
-    console.log("Subscription Access:", hasSubscriptionAccess);
-    console.log("Downloaded Access:", hasDownloadedAccess);
-    console.log("================================");
 
     const hasAccess =
       hasSubscriptionAccess || hasDownloadedAccess;

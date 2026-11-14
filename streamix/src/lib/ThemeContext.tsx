@@ -27,6 +27,32 @@ createContext<ThemeContextType | null>(null);
 
 
 
+// The same rule the server uses at login: light from 10:00 to 11:59 India
+// time, dark the rest of the day. Used for visitors who are not logged in.
+const getThemeForNow = (): Theme => {
+
+  try {
+
+    const hour = Number(
+      new Intl.DateTimeFormat("en-US", {
+        timeZone: "Asia/Kolkata",
+        hour: "numeric",
+        hourCycle: "h23",
+      }).format(new Date())
+    );
+
+    return hour >= 10 && hour < 12 ? "light" : "dark";
+
+  } catch {
+
+    return "dark";
+
+  }
+
+};
+
+
+
 export const ThemeProvider = ({
   children,
 }: {
@@ -36,6 +62,35 @@ export const ThemeProvider = ({
 
   const [theme, setTheme] =
   useState<Theme>("light");
+
+
+
+  // On first load: the saved user's theme, otherwise the time rule
+  useEffect(() => {
+
+    try {
+
+      const stored = JSON.parse(
+        localStorage.getItem("user") || "null"
+      );
+
+      if (stored?.theme === "light" || stored?.theme === "dark") {
+
+        setTheme(stored.theme);
+
+        return;
+
+      }
+
+    } catch {
+
+      // ignore unreadable storage
+
+    }
+
+    setTheme(getThemeForNow());
+
+  }, []);
 
 
 
