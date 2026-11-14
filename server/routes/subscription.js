@@ -1,19 +1,19 @@
 import express from "express";
 import {
     createOrder,
-    verifyPayment
+    verifyPayment,
+    getPlans,
+    getSubscriptionStatus,
 } from "../controllers/subscription.js";
 
 const router = express.Router();
 
-router.post(
-    "/create-order",
-    createOrder
-);
+router.get("/plans", getPlans);
 
-router.post(
-    "/verify-payment",
-    verifyPayment
-);
+router.post("/create-order", createOrder);
+
+router.post("/verify-payment", verifyPayment);
+
+router.get("/status/:userId", getSubscriptionStatus);
 
 export default router;
